@@ -1,0 +1,48 @@
+- job:
+    name: checkbox.io
+    project-type: pipeline
+    dsl: |
+       pipeline {
+          agent any
+          options {
+                 skipDefaultCheckout(true)
+          }
+          stages {
+                 stage('Source') {
+                    steps{
+                        script{
+                           sh "git clone https://github.com/chrisparnin/checkbox.io.git"
+                          }
+                      }
+                    }
+                    stage('Build') {
+                         steps {
+                             script{
+                                 sh "cd ./checkbox.io/server-side/site/ && sudo npm install"
+                                 sh "sudo npm install -g pm2"
+                                 sh "pm2 start ./checkbox.io/server-side/site/server.js"
+                               }
+                            }
+                        }
+                    stage('Static Analysis'){
+                        steps{
+                            script{
+                                sh "cd /bakerx/cm/static_analysis && sudo npm install --ignore-scripts"
+                                sh "node /bakerx/cm/static_analysis/analysis.js ./checkbox.io/server-side/site/"
+                            }
+                        }
+                    }
+                    stage('Test') {
+                        steps{
+                            script{
+                              sh "cd ./checkbox.io/server-side/site && npm test"
+                            }
+                        }
+                    }
+                }          
+                post { 
+                    always { 
+                        cleanWs()
+                    }
+                }                
+            }

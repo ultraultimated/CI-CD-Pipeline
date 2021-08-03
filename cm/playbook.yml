@@ -1,0 +1,10 @@
+---
+- hosts: localhost
+
+  roles:
+      - prerequisites
+      - set_env
+      - jenkins
+      - nodejs
+      - mongodb
+      

@@ -1,0 +1,69 @@
+- job:
+    name: iTrust
+    project-type: pipeline
+    dsl: |
+          pipeline {
+                agent any
+                options {
+                   skipDefaultCheckout(true)
+                }
+                stages {
+                  stage('Build') {
+                    steps{
+                        script{
+                            withCredentials([usernamePassword(credentialsId: 'GIT_CRED', passwordVariable: 'GH_PASS', usernameVariable: 'GH_USER')]) 
+                                {
+                                  sh """git clone https://"$GH_USER":"$GH_PASS"@github.ncsu.edu/engr-csc326-staff/iTrust2-v8"""
+                                }
+                                sh "cp /bakerx/cm/roles/prerequisites/templates/application.yml ./iTrust2-v8/iTrust2/src/main/resources/"
+                                sh "rm ./iTrust2-v8/iTrust2/src/main/resources/application.yml.template"
+                                sh "cp /bakerx/cm/roles/prerequisites/templates/pom.xml ./iTrust2-v8/iTrust2/"
+                    }
+                    }
+                  }
+                stage('Test') {
+                  steps{
+                    script{
+                          sh "cd ./iTrust2-v8/iTrust2/ && mvn clean test integration-test checkstyle:checkstyle"
+                          sh "cd ./iTrust2-v8/iTrust2/ && mvn compile war:war"
+                          sh "sudo cp ./iTrust2-v8/iTrust2/target/iTrust2-0.0.1-SNAPSHOT.war /home/vagrant/iTrust2.war"
+                    }
+                    step([$class: 'JacocoPublisher', 
+                                execPattern: '**/*.exec',
+                                changeBuildStatus: true,
+                                minimumInstructionCoverage: '20',
+                                minimumBranchCoverage: '20',
+                                minimumComplexityCoverage: '20',
+                                minimumLineCoverage: '20',
+                                minimumMethodCoverage: '20',
+                                minimumClassCoverage: '20',
+                                maximumInstructionCoverage: '60',
+                                maximumBranchCoverage: '40',
+                                maximumComplexityCoverage: '55',
+                                maximumLineCoverage: '60',
+                                maximumMethodCoverage: '60',
+                                maximumClassCoverage: '90'
+                          ])
+
+                    recordIssues(enabledForFailure: true, aggregatingResults: true, 
+                                  tool: checkStyle(pattern: '**/checkstyle-result.xml'))
+
+                  }
+                } 
+
+                stage('Clean up'){
+                  steps{
+                    script{
+                      sh "mysql -u admin --password='admin' -e 'DROP DATABASE IF EXISTS iTrust2_test'"
+                      sh "killall chrome || true"
+                      sh "ss -tulpn | grep :9001 || true"
+                    }
+                  }
+                }
+              }
+              post{ 
+                always{ 
+                  cleanWs()
+                }
+              }                
+          } 
